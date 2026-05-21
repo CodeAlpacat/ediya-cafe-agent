@@ -1,0 +1,335 @@
+# 이디야커피 (Ediya Coffee) 메뉴 사전
+# Source: shuttledelivery.co.kr Ediya menu (2025-12 사이즈 개편 반영)
+# 사이즈: L (Large 18oz) / EX (Extra)
+# 디카페인은 별도 카테고리(공식 분류 따름)
+
+menus:
+  # ====================
+  # COFFEE (15개)
+  # ====================
+  - kr: "아이스아메리카노"
+    en: "Iced Americano"
+    category: "coffee"
+    base_price_l: 4200
+  - kr: "핫아메리카노"
+    en: "Hot Americano"
+    category: "coffee"
+    base_price_l: 4200
+  - kr: "아이스카페라떼"
+    en: "Iced Latte"
+    category: "coffee"
+    base_price_l: 4200
+  - kr: "핫카페라떼"
+    en: "Hot Latte"
+    category: "coffee"
+    base_price_l: 4200
+  - kr: "아이스연유라떼"
+    en: "Iced Condensed Milk Latte"
+    category: "coffee"
+    base_price_l: 5500
+  - kr: "핫연유라떼"
+    en: "Hot Condensed Milk Latte"
+    category: "coffee"
+    base_price_l: 5500
+  - kr: "아이스헤이즐넛라떼"
+    en: "Iced Hazelnut Latte"
+    category: "coffee"
+    base_price_l: 5200
+  - kr: "핫헤이즐넛라떼"
+    en: "Hot Hazelnut Latte"
+    category: "coffee"
+    base_price_l: 5200
+  - kr: "아이스카페모카"
+    en: "Iced Mocha"
+    category: "coffee"
+    base_price_l: 5500
+  - kr: "핫카페모카"
+    en: "Hot Mocha"
+    category: "coffee"
+    base_price_l: 5500
+  - kr: "아이스카라멜마끼아또"
+    en: "Iced Caramel Macchiato"
+    category: "coffee"
+    base_price_l: 5500
+  - kr: "핫카라멜마끼아또"
+    en: "Hot Caramel Macchiato"
+    category: "coffee"
+    base_price_l: 5500
+  - kr: "아이스바닐라라떼"
+    en: "Iced Vanilla Latte"
+    category: "coffee"
+    base_price_l: 5500
+  - kr: "핫바닐라라떼"
+    en: "Hot Vanilla Latte"
+    category: "coffee"
+    base_price_l: 5500
+  - kr: "아이스화이트초콜릿모카"
+    en: "Iced White Chocolate Mocha"
+    category: "coffee"
+    base_price_l: 5500
+  - kr: "핫화이트초콜릿모카"
+    en: "Hot White Chocolate Mocha"
+    category: "coffee"
+    base_price_l: 5500
+
+  # ====================
+  # COLD BREW (4개)
+  # ====================
+  - kr: "콜드브루아메리카노"
+    en: "Original Cold Brew Americano"
+    category: "cold_brew"
+    base_price_l: 4900
+  - kr: "콜드브루라떼"
+    en: "Cold Brew with Milk"
+    category: "cold_brew"
+    base_price_l: 5500
+  - kr: "연유콜드브루"
+    en: "Condensed Milk Cold Brew"
+    category: "cold_brew"
+    base_price_l: 5700
+  - kr: "흑당콜드브루"
+    en: "Brown Sugar Cold Brew"
+    category: "cold_brew"
+    base_price_l: 5200
+
+  # ====================
+  # DECAF (4개) — 이디야는 별도 카테고리
+  # ====================
+  - kr: "디카페인콜드브루아메리카노"
+    en: "Decaf Cold Brew Americano"
+    category: "decaf"
+    base_price_l: 5200
+  - kr: "디카페인콜드브루라떼"
+    en: "Decaf Cold Brew with Milk"
+    category: "decaf"
+    base_price_l: 5800
+  - kr: "디카페인연유콜드브루"
+    en: "Decaf Condensed Milk Cold Brew"
+    category: "decaf"
+    base_price_l: 6000
+  - kr: "디카페인흑당콜드브루"
+    en: "Decaf Brown Sugar Cold Brew"
+    category: "decaf"
+    base_price_l: 5500
+
+  # ====================
+  # BEVERAGE (11개)
+  # ====================
+  - kr: "달고나밀크"
+    en: "Dalgona Milk"
+    category: "beverage"
+    base_price_l: 4700
+  - kr: "흑당밀크"
+    en: "Brown Sugar Milk"
+    category: "beverage"
+    base_price_l: 4700
+  - kr: "아이스모카음료"
+    en: "Iced Mocha Beverage"
+    category: "beverage"
+    base_price_l: 4900
+  - kr: "핫모카음료"
+    en: "Hot Mocha Beverage"
+    category: "beverage"
+    base_price_l: 4900
+  - kr: "아이스녹차라떼"
+    en: "Iced Green Tea Latte"
+    category: "beverage"
+    base_price_l: 4900
+  - kr: "핫녹차라떼"
+    en: "Hot Green Tea Latte"
+    category: "beverage"
+    base_price_l: 4900
+  - kr: "아이스곡물음료"
+    en: "Iced Grain Drink"
+    category: "beverage"
+    base_price_l: 4700
+  - kr: "핫곡물음료"
+    en: "Hot Grain Drink"
+    category: "beverage"
+    base_price_l: 4700
+  - kr: "순우유"
+    en: "Pure Milk"
+    category: "beverage"
+    base_price_l: 5700
+  - kr: "레몬아이스티"
+    en: "Lemon Iced Tea"
+    category: "beverage"
+    base_price_l: 3900
+
+  # ====================
+  # BLENDING TEA (3개)
+  # ====================
+  - kr: "아이스복숭아루이보스"
+    en: "Iced Peach Rooibos Tea"
+    category: "tea"
+    base_price_l: 4200
+  - kr: "핫복숭아루이보스"
+    en: "Hot Peach Rooibos Tea"
+    category: "tea"
+    base_price_l: 4200
+  - kr: "아이스후르츠허브티"
+    en: "Iced Fruit Herbal Tea"
+    category: "tea"
+    base_price_l: 4200
+  - kr: "핫후르츠허브티"
+    en: "Hot Fruit Herbal Tea"
+    category: "tea"
+    base_price_l: 4200
+  - kr: "아이스민트티"
+    en: "Iced Mint Tea"
+    category: "tea"
+    base_price_l: 4200
+  - kr: "핫민트티"
+    en: "Hot Mint Tea"
+    category: "tea"
+    base_price_l: 4200
+
+  # ====================
+  # BUBBLE TEA (2개)
+  # ====================
+  - kr: "흑당버블티"
+    en: "Brown Sugar Bubble Tea"
+    category: "bubble_tea"
+    base_price_l: 5700
+  - kr: "우롱버블티"
+    en: "Oolong Bubble Tea"
+    category: "bubble_tea"
+    base_price_l: 5700
+
+  # ====================
+  # FLATCCINO (2개)
+  # ====================
+  - kr: "모카플랫치노"
+    en: "Mocha Flatccino"
+    category: "flatccino"
+    base_price_l: 5500
+  - kr: "요거트플랫치노"
+    en: "Yogurt Flatccino"
+    category: "flatccino"
+    base_price_l: 5500
+
+  # ====================
+  # MOGU MOGU (2개)
+  # ====================
+  - kr: "모구모구리치"
+    en: "Mogu Mogu Lychee"
+    category: "ade"
+    base_price_l: 4700
+  - kr: "모구모구피치"
+    en: "Mogu Mogu Peach"
+    category: "ade"
+    base_price_l: 4700
+
+  # ====================
+  # BAKERY (3개) — 일부 재고 제한 (당일 한정)
+  # ====================
+  - kr: "플레인와플"
+    en: "Plain Belgian Waffle"
+    category: "bakery"
+    base_price_l: 3200
+    stock: 2                     # 당일 2개 한정
+  - kr: "크림치즈프레첼"
+    en: "Cream Cheese Pretzel"
+    category: "bakery"
+    base_price_l: 3200
+    stock: 0                     # 품절
+  - kr: "플레인베이글"
+    en: "Plain Bagel"
+    category: "bakery"
+    base_price_l: 3000
+    stock: 5
+
+  # ====================
+  # ICE FLAKES — 시즌 (6개) — 재고 제한
+  # ====================
+  - kr: "컵단팥빙수"
+    en: "Cup Red Bean Bingsu"
+    category: "ice_flakes"
+    base_price_l: 6500
+    stock: 3
+  - kr: "컵망고빙수"
+    en: "Cup Mango Bingsu"
+    category: "ice_flakes"
+    base_price_l: 7500
+    stock: 0                     # 품절
+  - kr: "컵듀오초콜릿빙수"
+    en: "Cup Duo Chocolate Bingsu"
+    category: "ice_flakes"
+    base_price_l: 7000
+    stock: 4
+  - kr: "플레이트단팥빙수"
+    en: "Plate Red Bean Bingsu"
+    category: "ice_flakes"
+    base_price_l: 9500
+    stock: 2
+  - kr: "플레이트망고빙수"
+    en: "Plate Mango Bingsu"
+    category: "ice_flakes"
+    base_price_l: 11000
+    stock: 0                     # 품절
+  - kr: "플레이트듀오초콜릿빙수"
+    en: "Plate Duo Chocolate Bingsu"
+    category: "ice_flakes"
+    base_price_l: 10000
+    stock: 2
+
+# stock 필드 의미:
+# - 없거나 null/-1 = 무한 재고 (기본값, 음료 카테고리 전반)
+# - 0 = 품절 (당일 매진)
+# - N (양수) = N개까지 주문 가능. 이미 카트에 있는 수량과 합쳐서 N 초과 시 INSUFFICIENT_STOCK 반환
+
+
+# ====================
+# 옵션 카테고리 (이디야 기준)
+# ====================
+option_categories:
+  - kr: "사이즈"
+    en: "Size"
+    is_essential: false   # 기본 L. 사용자가 EX 명시 안 하면 L로 진행.
+    options:
+      - {kr: "라지", en: "Large", price_delta: 0}
+      - {kr: "엑스트라", en: "Extra", price_delta: 1000}
+
+  - kr: "샷추가"
+    en: "Add Shot"
+    is_essential: false
+    applicable_categories: ["coffee", "cold_brew", "decaf"]
+    options:
+      - {kr: "샷추가", en: "Add Shot", price_delta: 500}
+
+  - kr: "시럽추가"
+    en: "Syrup"
+    is_essential: false
+    applicable_categories: ["coffee", "cold_brew", "decaf", "beverage"]
+    options:
+      - {kr: "헤이즐넛시럽 추가", en: "Hazelnut Syrup", price_delta: 500}
+      - {kr: "바닐라시럽 추가", en: "Vanilla Syrup", price_delta: 500}
+      - {kr: "카라멜시럽 추가", en: "Caramel Syrup", price_delta: 500}
+      - {kr: "흑당시럽 추가", en: "Brown Sugar Syrup", price_delta: 500}
+
+  - kr: "휘핑선택"
+    en: "Whipped Cream"
+    is_essential: false
+    applicable_categories: ["coffee", "beverage", "flatccino"]
+    options:
+      - {kr: "휘핑추가", en: "Add Whipped Cream", price_delta: 500}
+      - {kr: "휘핑빼기", en: "No Whipped Cream", price_delta: 0}
+
+  - kr: "당도선택"
+    en: "Sweetness"
+    is_essential: false
+    applicable_categories: ["coffee", "cold_brew", "beverage", "bubble_tea", "flatccino", "ade"]
+    options:
+      - {kr: "기본", en: "Standard", price_delta: 0}
+      - {kr: "달게", en: "Sweet", price_delta: 0}
+      - {kr: "덜달게", en: "Less Sweet", price_delta: 0}
+      - {kr: "저당", en: "Low Sugar", price_delta: 0}
+
+  - kr: "얼음선택"
+    en: "Ice"
+    is_essential: false
+    applicable_categories: ["coffee", "cold_brew", "decaf", "beverage", "ade", "bubble_tea", "flatccino"]
+    options:
+      - {kr: "기본얼음", en: "Normal Ice", price_delta: 0}
+      - {kr: "얼음적게", en: "Less Ice", price_delta: 0}
+      - {kr: "얼음많이", en: "Extra Ice", price_delta: 0}

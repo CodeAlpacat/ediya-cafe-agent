@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>이디야 커피 ☕ — 로컬 챗봇 데모</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">☕</span>
+      <div>
+        <h1>이디야 커피</h1>
+        <p class="brand-sub">Gemma 4 E2B 로컬 데모</p>
+      </div>
+    </div>
+    <button id="reset-btn" class="reset-btn" type="button">🧹 대화 초기화</button>
+  </header>
+
+  <main class="layout">
+    <section class="chat-pane" aria-label="chat">
+      <div id="messages" class="messages">
+        <div class="bubble bubble-bot">
+          안녕하세요. 이디야 커피입니다. <br />
+          어떤 음료를 드릴까요?
+        </div>
+      </div>
+      <form id="composer" class="composer">
+        <textarea
+          id="input"
+          rows="1"
+          placeholder="어떤 음료를 드릴까요? (예: 아이스 아메리카노 한 잔)"
+          autofocus
+        ></textarea>
+        <button id="send" type="submit" aria-label="전송">
+          <span class="send-arrow">↑</span>
+        </button>
+      </form>
+    </section>
+
+    <aside class="cart-pane" aria-label="cart">
+      <h2 class="cart-title">🛒 장바구니</h2>
+      <div id="cart-list" class="cart-list">
+        <div class="cart-empty">
+          <p>아직 담긴 메뉴가 없어요</p>
+          <small>채팅으로 주문해 보세요</small>
+        </div>
+      </div>
+      <div id="cart-total" class="cart-total hidden">
+        <span>합계</span>
+        <strong id="total-amount">0원</strong>
+      </div>
+    </aside>
+  </main>
+
+  <div id="toast-host" class="toast-host" aria-live="polite"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
