@@ -1,6 +1,6 @@
 """대화 처리 어댑터.
 
-`coffee.agent.run_turn`이 이미 first-call → tool dispatch → second-call 전체를 처리하므로,
+`app.agent.run_turn`이 이미 first-call → tool dispatch → second-call 전체를 처리하므로,
 이 모듈은 비동기 환경에서 호출하기 좋게 wrap만 한다.
 """
 from __future__ import annotations
