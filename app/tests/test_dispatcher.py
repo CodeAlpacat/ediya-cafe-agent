@@ -4,7 +4,7 @@ import pytest
 
 @pytest.fixture
 def cart_and_dispatch():
-    from app.cart import Cart
+    from app.domain.cart import Cart
     from app.dispatcher import dispatch_tool
 
     cart = Cart()

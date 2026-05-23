@@ -19,8 +19,8 @@ pytestmark = pytest.mark.ollama
 
 
 def _run_one_turn(client, model: str, user_msg: str):
-    from app.agent import AgentConfig, run_turn
-    from app.cart import Cart
+    from app.llm.agent import AgentConfig, run_turn
+    from app.domain.cart import Cart
 
     cart = Cart()
     history: List[Dict[str, Any]] = []

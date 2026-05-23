@@ -1,8 +1,7 @@
-"""RAG Step 2: Embedding-based menu retrieval.
+"""임베딩 기반 메뉴 검색 (semantic retrieval).
 
 목적:
-1. P2 hallucination을 완전히 해결 (Step 1은 keyword 매칭 한계 — "단 거", "달콤한" 같은
-   의미 매칭 약함)
+1. 의미 매칭 — "단 거", "달콤한" 같은 발화를 메뉴와 연결 (키워드 매칭으로는 약함)
 2. `inquire_menu_info` dispatcher가 실제 메뉴 정보를 답변할 수 있게 함
 
 설계:
@@ -10,6 +9,9 @@
 - 메뉴 각각을 descriptor 문자열로 변환 → embedding
 - 코사인 유사도로 top-k 검색
 - 인덱스는 lazy-load + 디스크 캐시 (다음 실행 시 재인덱싱 스킵)
+
+descriptor 보강에 쓰는 카테고리 설명/맛 태그는 menu_data.yaml에서 읽는다
+(get_category_descriptor / item["tags"]) — 코드에 하드코딩하지 않는다.
 """
 from __future__ import annotations
 
@@ -20,46 +22,34 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from app.menu import load_menu
+from app.cafe_profile import active_cafe
+from app.domain.menu import MENU_DATA_PATH, get_category_descriptor, load_menu
 
 logger = logging.getLogger("ediya.rag")
 
-INDEX_PATH = Path(__file__).resolve().parent / "rag_index.pkl"
+# 인덱스 캐시는 카페별로 분리 — 카페를 바꿔도 서로 캐시를 덮어쓰지 않는다.
+INDEX_PATH = Path(__file__).resolve().parent / f"rag_index_{active_cafe()}.pkl"
 EMBEDDING_MODEL_NAME = "jhgan/ko-sroberta-multitask"
 
+# answer_menu_inquiry에서 "유의미한 매칭"으로 간주하는 코사인 유사도 하한.
+# 이보다 낮으면 후보로 제시하되 fallback 경로를 탄다.
+RELEVANCE_THRESHOLD = 0.3
 
-# 단맛/추천 같은 의미 키워드와 메뉴 매핑을 위한 descriptor enrichment
-# 모델이 embedding으로 의미 매칭하도록 자연어 설명 추가
-_CATEGORY_DESCRIPTORS = {
-    "coffee": "커피 음료, 에스프레소 기반",
-    "cold_brew": "콜드브루 커피, 깔끔하고 부드러운 맛",
-    "decaf": "디카페인 커피, 카페인 없음",
-    "beverage": "비커피 음료, 부드러운 맛",
-    "tea": "차, 카페인 적거나 없음, 향긋한 맛",
-    "bubble_tea": "버블티, 쫄깃한 펄 들어간 달콤한 음료",
-    "flatccino": "플랫치노, 진하고 달콤한 블렌딩 음료",
-    "ade": "에이드, 상큼하고 시원한 음료",
-    "bakery": "베이커리, 빵/디저트",
-    "ice_flakes": "빙수, 시원한 디저트",
-}
 
-# 메뉴별 맛 키워드 (특정 메뉴에만 의미적으로 강한 단어가 있는 경우)
-_SWEET_KEYWORDS = [
-    "바닐라라떼", "헤이즐넛라떼", "카페모카", "카라멜마끼아또", "화이트초콜릿모카",
-    "연유라떼", "연유콜드브루", "흑당콜드브루",
-    "달고나밀크", "흑당밀크",
-    "초코라떼", "딸기라떼",
-    "흑당버블티",
-    "모카플랫치노",
-    "모구모구",
-    "단팥", "망고", "듀오초콜릿",
-]
+def _menu_data_mtime() -> float:
+    """menu_data.yaml의 최종 수정 시각. 캐시 무효화 판단에 쓴다."""
+    try:
+        return MENU_DATA_PATH.stat().st_mtime
+    except OSError:
+        return 0.0
 
 
 def _menu_to_descriptor(item: Dict[str, Any]) -> str:
-    """메뉴 1개를 embedding용 descriptor 자연어로 변환."""
-    parts = [item["kr"]]
-    parts.append(_CATEGORY_DESCRIPTORS.get(item.get("category", ""), ""))
+    """메뉴 1개를 embedding용 descriptor 자연어로 변환.
+
+    구성: 메뉴명 + 카테고리 설명 + 가격대 + 맛 태그 + 온도/디카페인(메뉴명에서 유도).
+    """
+    parts = [item["kr"], get_category_descriptor(item.get("category", ""))]
 
     # 가격대
     price = item.get("base_price_l", 0)
@@ -71,11 +61,10 @@ def _menu_to_descriptor(item: Dict[str, Any]) -> str:
         else:
             parts.append("프리미엄 가격")
 
-    # 맛 키워드 (메뉴명에 단맛 관련 어휘 있으면 보강)
-    if any(sw in item["kr"] for sw in _SWEET_KEYWORDS):
-        parts.append("달콤한 맛")
+    # 맛/속성 태그 (menu_data.yaml의 tags 필드 — 메뉴명에서 유도 불가한 속성)
+    parts.extend(item.get("tags") or [])
 
-    # 온도
+    # 온도 (메뉴명에서 유도)
     if item["kr"].startswith("아이스") or "콜드" in item["kr"]:
         parts.append("차가운")
     if item["kr"].startswith("핫") or "따뜻" in item["kr"]:
@@ -117,6 +106,7 @@ class MenuRetriever:
             "descriptors": descriptors,
             "embeddings": embeddings,
             "model_name": self.model_name,
+            "menu_mtime": _menu_data_mtime(),
         }
 
     def _load_or_build(self):
@@ -126,9 +116,11 @@ class MenuRetriever:
             try:
                 with INDEX_PATH.open("rb") as f:
                     self._index = pickle.load(f)
-                # 모델 이름 변경 시 재구축
+                # 모델 이름 또는 menu_data.yaml 변경 시 재구축
                 if self._index.get("model_name") != self.model_name:
                     raise ValueError("model changed")
+                if self._index.get("menu_mtime") != _menu_data_mtime():
+                    raise ValueError("menu_data.yaml changed")
                 logger.info(f"loaded RAG index from {INDEX_PATH}")
                 return
             except Exception as e:
@@ -185,10 +177,10 @@ def answer_menu_inquiry(question: str, k: int = 5) -> Dict[str, Any]:
     if not hits:
         return {"answer_basis": "no_match", "candidates": []}
 
-    # 상위 결과 중 score >= 0.3 만 유의미한 것으로
-    relevant = [h for h in hits if h["score"] >= 0.3][:5]
+    # 임계값 이상만 유의미한 매칭으로 — 없으면 점수 낮아도 상위 후보 제시
+    relevant = [h for h in hits if h["score"] >= RELEVANCE_THRESHOLD][:5]
     if not relevant:
-        relevant = hits[:3]  # 점수 낮아도 일단 후보 제시
+        relevant = hits[:3]
 
     return {
         "answer_basis": "rag_search",

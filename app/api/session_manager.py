@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from app.cart import Cart
+from app.domain.cart import Cart
 
 logger = logging.getLogger("ediya")
 

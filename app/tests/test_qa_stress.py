@@ -24,8 +24,8 @@ pytestmark = pytest.mark.ollama
 
 def _run(client, model: str, msgs: List[str]) -> Tuple[Any, List[Dict[str, Any]], List[str]]:
     """주어진 발화 list 처리. (cart, history, responses) 반환."""
-    from app.agent import AgentConfig, run_turn
-    from app.cart import Cart
+    from app.llm.agent import AgentConfig, run_turn
+    from app.domain.cart import Cart
 
     cart = Cart()
     history: List[Dict[str, Any]] = []
@@ -183,7 +183,7 @@ def test_self_correction(ollama_client, model_name):
 def test_long_conversation_10_turns(ollama_client, model_name):
     """10턴 대화 후 핵심 도구 호출 + 디카페인 swap 검증.
 
-    P3 stuck guard + RAG Step 1 menu hint 적용 후 안정 통과.
+    P3 stuck guard + 키워드 메뉴 hint 적용 후 안정 통과.
     이전 xfail 박제 해제 (2026-05-21).
     """
     turns = [
@@ -430,7 +430,7 @@ def test_insufficient_stock_offers_max(ollama_client, model_name):
 def test_loose_menu_name_hallucination(ollama_client, model_name):
     """자유 발화 '단팥빙수' (공백/카테고리 누락) → 모델이 정확한 종류 되묻기.
 
-    RAG Step 1 menu hint로 통과. agent.py가 발화에서 메뉴 후보를 추출해서
+    키워드 메뉴 hint로 통과. agent.py가 발화에서 메뉴 후보를 추출해서
     "컵단팥빙수/플레이트단팥빙수 중 어떤 거?" 명확화 질문 유도.
     이전 xfail 박제 해제 (2026-05-21).
     """

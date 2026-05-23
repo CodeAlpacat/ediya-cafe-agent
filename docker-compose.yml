@@ -1,49 +1,27 @@
+# 기본 구성: app만 Docker로 실행하고 LLM은 호스트 네이티브 Ollama를 사용한다.
+# macOS에서 Docker VM은 Apple GPU(Metal)에 접근할 수 없으므로, Ollama는
+# 호스트에서 직접 실행해야 GPU 가속을 받는다.
+#
+#   실행:        docker compose up -d
+#   사전 요구:    호스트에 Ollama 설치 + 실행, 모델 pull (README 참고)
+#
+# Ollama까지 Docker로 묶어 실행하려면(GPU 없는 Linux 서버 등):
+#   docker compose -f docker-compose.yml -f docker-compose.bundled.yml up -d
 services:
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ediya-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-data:/root/.ollama
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    restart: unless-stopped
-
-  ollama-init:
-    image: ollama/ollama:latest
-    container_name: ediya-ollama-init
-    depends_on:
-      ollama:
-        condition: service_healthy
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        echo "[init] pulling ${OLLAMA_MODEL:-gemma4:e2b}..."
-        OLLAMA_HOST=http://ollama:11434 ollama pull ${OLLAMA_MODEL:-gemma4:e2b}
-        echo "[init] done"
-    restart: "no"
-
   app:
     build: .
     image: ediya-cafe-agent:latest
     container_name: ediya-app
-    depends_on:
-      ollama:
-        condition: service_healthy
-      ollama-init:
-        condition: service_completed_successfully
     ports:
       - "8080:8080"
     environment:
-      - OLLAMA_BASE_URL=http://ollama:11434/v1
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma4:e2b}
+      - CAFE_PROFILE=${CAFE_PROFILE:-ediya}
       - PYTHONUNBUFFERED=1
+    extra_hosts:
+      # 컨테이너에서 호스트의 Ollama에 접근 (Linux에서도 동작하도록 명시)
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 15s
@@ -51,6 +29,3 @@ services:
       retries: 5
       start_period: 20s
     restart: unless-stopped
-
-volumes:
-  ollama-data:

@@ -33,8 +33,8 @@ def _tools_used(history: List[Dict[str, Any]]) -> List[str]:
 
 def _run_turns(client, model: str, user_messages: List[str]):
     """주어진 발화 list를 순서대로 run_turn으로 처리. (cart, history, responses) 반환."""
-    from app.agent import AgentConfig, run_turn
-    from app.cart import Cart
+    from app.llm.agent import AgentConfig, run_turn
+    from app.domain.cart import Cart
 
     cart = Cart()
     history: List[Dict[str, Any]] = []

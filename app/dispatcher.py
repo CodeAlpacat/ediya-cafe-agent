@@ -3,14 +3,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from app.cart import Cart
-from app.menu import (
+from app.domain.cart import Cart
+from app.domain.menu import (
     find_option_category,
     find_similar_menus,
     get_menu_category,
     get_menu_stock,
     is_option_applicable,
     is_valid_menu,
+    resolve_menu_alias,
 )
 
 
@@ -67,6 +68,7 @@ def _validate_options(menu_kr: str, options: List[str]) -> Dict[str, Any] | None
 
 def _add_menu(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
     menu = args.get("menu", "")
+    menu = resolve_menu_alias(menu) or menu  # 모델이 줄임말('아아' 등)을 그대로 넘긴 경우 보정
     quantity = int(args.get("quantity", 1))
     options = list(args.get("options") or [])
 
@@ -92,6 +94,7 @@ def _add_menu(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
 
 def _remove_menu(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
     menu = args.get("menu", "")
+    menu = resolve_menu_alias(menu) or menu  # 줄임말 보정
     quantity = int(args.get("quantity", -1))
     if menu != "ALL" and not is_valid_menu(menu):
         # menu가 'ALL'이 아니고 사전에도 없으면 not_in_cart 처리 (사용자가 이상한 이름 부른 경우)
@@ -101,7 +104,9 @@ def _remove_menu(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
 
 def _replace_menu(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
     from_menu = args.get("from_menu", "")
+    from_menu = resolve_menu_alias(from_menu) or from_menu  # 줄임말 보정
     to_menu = args.get("to_menu", "")
+    to_menu = resolve_menu_alias(to_menu) or to_menu  # 줄임말 보정
     to_options = list(args.get("to_options") or [])
 
     if not is_valid_menu(to_menu):
@@ -124,13 +129,46 @@ def _replace_menu(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
     return cart.replace(from_menu=from_menu, to_menu=to_menu, to_options=to_options)
 
 
+# 같은 카테고리 내에서 하나만 유효한(상호배타) 옵션 카테고리.
+# 새 옵션이 들어오면 같은 카테고리의 기존 옵션을 대체한다.
+_EXCLUSIVE_OPT_CATEGORIES = {"사이즈", "휘핑선택", "당도선택", "얼음선택"}
+
+
+def _merge_options(existing: List[str], new: List[str]) -> List[str]:
+    """기존 옵션에 새 옵션을 병합.
+
+    - 상호배타 카테고리(사이즈/휘핑/당도/얼음): 새 값이 같은 카테고리 기존 값을 대체.
+    - 누적 가능 카테고리(샷추가/시럽추가): 단순 추가(중복 제거).
+    모델이 '샷 추가'만 보내도 기존 '엑스트라'가 사라지지 않게 한다.
+    """
+    result = list(existing)
+    for opt in new:
+        cat = find_option_category(opt)
+        if cat in _EXCLUSIVE_OPT_CATEGORIES:
+            result = [o for o in result if find_option_category(o) != cat]
+        if opt not in result:
+            result.append(opt)
+    return result
+
+
 def _change_option(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
     menu = args.get("menu", "")
+    menu = resolve_menu_alias(menu) or menu  # 줄임말 보정
     new_options = list(args.get("new_options") or [])
     opt_err = _validate_options(menu, new_options) if is_valid_menu(menu) else None
     if opt_err:
         return opt_err
-    return cart.change_option(menu=menu, new_options=new_options)
+
+    # new_options가 비어 있으면 '옵션 전체 해제' 의도 — 그대로 빈 리스트로 설정.
+    # 비어 있지 않으면 기존 옵션과 병합해 의도치 않은 옵션 소실을 막는다.
+    if not new_options:
+        merged = []
+    else:
+        current = next(
+            (it["options"] for it in cart.snapshot() if it["menu"] == menu), []
+        )
+        merged = _merge_options(current, new_options)
+    return cart.change_option(menu=menu, new_options=merged)
 
 
 def _check_cart(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -150,7 +188,7 @@ def _inquire_menu_info(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
     """
     question = args.get("question", "")
     try:
-        from app.rag import answer_menu_inquiry
+        from app.llm.rag import answer_menu_inquiry
 
         rag = answer_menu_inquiry(question, k=5)
         candidates = rag.get("candidates", [])

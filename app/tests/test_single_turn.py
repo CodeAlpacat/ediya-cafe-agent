@@ -17,7 +17,7 @@ pytestmark = pytest.mark.ollama
 
 def _call(client, model: str, user_msg: str) -> Dict[str, Any]:
     """단일턴 호출 — chat_once 헬퍼. agent.py 구현 전까지 ImportError로 RED 유지."""
-    from app.agent import chat_once, AgentConfig
+    from app.llm.agent import chat_once, AgentConfig
 
     cfg = AgentConfig(model=model)
     return chat_once(client=client, user_message=user_msg, config=cfg)
@@ -59,7 +59,7 @@ def test_add_menu_with_quantity(ollama_client, model_name):
 
 def _history_with_americano_in_cart() -> List[Dict[str, Any]]:
     """이전 턴에서 '아이스아메리카노 1잔'을 카트에 담은 상태로 history 구성."""
-    from app.prompts import SYSTEM_PROMPT
+    from app.llm.prompts import SYSTEM_PROMPT
 
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -97,7 +97,7 @@ def _history_with_americano_in_cart() -> List[Dict[str, Any]]:
 
 def test_remove_menu(ollama_client, model_name):
     """카트에 아이스아메리카노가 있는 상태에서 'remove' 발화."""
-    from app.agent import chat_once, AgentConfig
+    from app.llm.agent import chat_once, AgentConfig
 
     cfg = AgentConfig(model=model_name)
     result = chat_once(
@@ -114,7 +114,7 @@ def test_remove_menu(ollama_client, model_name):
 
 def test_replace_menu(ollama_client, model_name):
     """카트에 아이스아메리카노가 있는 상태에서 'swap' 발화."""
-    from app.agent import chat_once, AgentConfig
+    from app.llm.agent import chat_once, AgentConfig
 
     cfg = AgentConfig(model=model_name)
     result = chat_once(
@@ -136,7 +136,7 @@ def test_replace_menu(ollama_client, model_name):
 
 def test_change_option(ollama_client, model_name):
     """카트에 아이스아메리카노가 있는 상태에서 옵션 변경 발화."""
-    from app.agent import chat_once, AgentConfig
+    from app.llm.agent import chat_once, AgentConfig
 
     cfg = AgentConfig(model=model_name)
     result = chat_once(

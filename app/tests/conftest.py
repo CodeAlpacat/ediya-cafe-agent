@@ -13,13 +13,13 @@ if str(PROJECT_ROOT) not in sys.path:
 
 @pytest.fixture
 def fresh_cart():
-    from app.cart import Cart
+    from app.domain.cart import Cart
     return Cart()
 
 
 @pytest.fixture(scope="session")
 def loaded_menu():
-    from app.menu import load_menu
+    from app.domain.menu import load_menu
     return load_menu()
 
 

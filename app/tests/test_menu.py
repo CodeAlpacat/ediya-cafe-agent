@@ -63,7 +63,7 @@ def test_decaf_is_a_menu_category_not_option(loaded_menu):
 
 
 def test_is_valid_menu(loaded_menu):
-    from app.menu import is_valid_menu
+    from app.domain.menu import is_valid_menu
 
     assert is_valid_menu("아이스아메리카노") is True
     assert is_valid_menu("디카페인콜드브루아메리카노") is True
@@ -72,7 +72,7 @@ def test_is_valid_menu(loaded_menu):
 
 
 def test_is_valid_option_in_category(loaded_menu):
-    from app.menu import is_valid_option_in_category
+    from app.domain.menu import is_valid_option_in_category
 
     assert is_valid_option_in_category("엑스트라", "사이즈") is True
     assert is_valid_option_in_category("샷추가", "샷추가") is True
@@ -82,7 +82,7 @@ def test_is_valid_option_in_category(loaded_menu):
 
 def test_find_option_category(loaded_menu):
     """옵션 이름만 알 때 카테고리 자동 판별."""
-    from app.menu import find_option_category
+    from app.domain.menu import find_option_category
 
     assert find_option_category("엑스트라") == "사이즈"
     assert find_option_category("샷추가") == "샷추가"
@@ -92,7 +92,7 @@ def test_find_option_category(loaded_menu):
 
 def test_option_applicable_to_category(loaded_menu):
     """샷추가는 coffee/cold_brew/decaf에만 적용 가능."""
-    from app.menu import is_option_applicable
+    from app.domain.menu import is_option_applicable
 
     assert is_option_applicable(option_kr="샷추가", menu_category="coffee") is True
     assert is_option_applicable(option_kr="샷추가", menu_category="bakery") is False

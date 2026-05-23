@@ -1,0 +1,50 @@
+# 풀-Docker 오버라이드: Ollama까지 Docker 컨테이너로 실행한다.
+# GPU 가속이 없으므로 CPU 추론이며 macOS에서는 매우 느리다.
+# Apple GPU가 없는 Linux 서버, 또는 호스트에 Ollama를 둘 수 없는 환경에서만 사용할 것.
+#
+#   실행:  docker compose -f docker-compose.yml -f docker-compose.bundled.yml up -d
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ediya-ollama
+    environment:
+      - OLLAMA_CONTEXT_LENGTH=16384
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: ediya-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "[init] pulling ${OLLAMA_MODEL:-gemma4:e2b}..."
+        OLLAMA_HOST=http://ollama:11434 ollama pull ${OLLAMA_MODEL:-gemma4:e2b}
+        echo "[init] done"
+    restart: "no"
+
+  app:
+    # 호스트 Ollama 대신 Docker의 ollama 서비스를 바라본다
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434/v1
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+
+volumes:
+  ollama-data:

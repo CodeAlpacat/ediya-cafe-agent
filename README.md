@@ -2,21 +2,46 @@
 
 로컬 Gemma 4 E2B(Ollama) 위에서 도는 이디야 커피 주문 챗봇. FastAPI + OpenAI Function Call. 한 화면에서 채팅하면 우측 카트가 실시간으로 갱신된다.
 
-`docker compose up` 한 줄로 띄운다. 외부 API 키 필요 없다.
+앱은 Docker로, LLM(Ollama)은 호스트에서 직접 돌린다. 외부 API 키는 필요 없다.
 
 ---
 
-## 5초 데모
+## 실행 방식
+
+macOS의 Docker는 리눅스 VM 안에서 돌기 때문에 Apple GPU(Metal)에 접근하지 못한다.
+Ollama를 Docker 안에 두면 CPU 추론만 가능해 LLM이 사실상 못 쓸 만큼 느리다.
+그래서 기본 구성은 **앱만 Docker, Ollama는 호스트 네이티브**다.
+
+기본 모델은 `gemma4:e2b`(~7GB)다. 16GB RAM 머신에서는 GPU 메모리 확보를 위해 여유 RAM이
+넉넉해야 한다(트러블슈팅 참고). `OLLAMA_MODEL` 환경변수로 교체할 수 있다.
+
+### A. 기본 구성 — 호스트 Ollama (권장, macOS)
+
+사전 요구: 호스트에 [Ollama](https://ollama.com/download) 설치.
 
 ```bash
+# 1) Ollama 실행 + 모델 받기 (최초 1회, ~7GB)
+ollama serve              # 또는 Ollama.app 실행
+ollama pull gemma4:e2b    # = make pull-model
+
+# 2) 앱 기동
 git clone git@github.com:CodeAlpacat/ediya-cafe-agent.git
 cd ediya-cafe-agent
-docker compose up -d
+docker compose up -d      # = make up
 ```
 
 브라우저 → `http://localhost:8080`.
 
-처음 한 번은 모델 pull 때문에 5~10분 걸린다. 이후엔 즉시 뜬다.
+앱 컨테이너는 `host.docker.internal:11434`로 호스트 Ollama에 접속한다.
+
+### B. 풀-Docker 구성 — Ollama까지 컨테이너 (GPU 없는 Linux 서버 등)
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.bundled.yml up -d
+```
+
+`ollama-init` 컨테이너가 모델을 자동으로 pull 한다(최초 5~10분, volume에 영속화).
+GPU 가속이 없어 CPU 추론이며 macOS에서는 매우 느리다 — Linux/GPU 환경에서만 권장.
 
 ---
 
@@ -36,10 +61,12 @@ docker compose up -d
 
 | 명령 | 동작 |
 |------|------|
-| `make up` | docker compose 전체 기동 (Ollama + 모델 pull + 앱) |
-| `make down` | 컨테이너 정지 |
+| `make pull-model` | 호스트 Ollama에 모델 받기 (`OLLAMA_MODEL`) |
+| `make up` | 기본 구성 기동 (앱만 Docker, 호스트 Ollama 사용) |
+| `make up-bundled` | 풀-Docker 기동 (Ollama 컨테이너 + 모델 pull + 앱) |
+| `make down` | 컨테이너 정지 (두 구성 모두) |
 | `make logs` | 앱 로그 follow |
-| `make logs-ollama` | Ollama 로그 follow |
+| `make logs-ollama` | Ollama 로그 follow (풀-Docker 구성에서만) |
 | `make status` | 컨테이너 상태 |
 | `make smoke` | up → curl 1턴 → assert. CI에서 사용 |
 | `make install` | host venv 생성 (docker 안 쓸 때) |
@@ -54,18 +81,28 @@ docker compose up -d
 ```
 ediya-cafe-agent/
 ├── app/
-│   ├── cart.py, menu.py, menu_data.yaml   # 도메인 — 52종 메뉴 + 6 옵션 카테고리
-│   ├── tools.py                            # 7개 OpenAI Function Call 스키마
-│   ├── prompts.py                          # 시스템 프롬프트 + few-shot
+│   ├── cafes/                              # 카페별 콘텐츠 — 교체 단위
+│   │   └── ediya/                          #   CAFE_PROFILE=ediya
+│   │       ├── menu_data.yaml              #   52종 메뉴 + 카테고리 + 옵션
+│   │       ├── system_prompt.txt           #   시스템 프롬프트 전문 + few-shot
+│   │       └── profile.yaml                #   카페명 + 줄임말 맵
+│   ├── cafe_profile.py                     # 활성 카페(CAFE_PROFILE) 로더
+│   ├── domain/                             # 도메인 레이어 — LLM/웹 비의존
+│   │   ├── cart.py                         # 카트 상태 (검증은 dispatcher가)
+│   │   └── menu.py                         # 메뉴 로더 + 검증 + 키워드 검색
+│   ├── llm/                                # LLM 레이어
+│   │   ├── agent.py                        # run_turn: 멀티 라운드트립 + 가드
+│   │   ├── tools.py                        # 7개 OpenAI Function Call 스키마
+│   │   ├── prompts.py                      # 활성 카페의 system_prompt.txt 로드
+│   │   └── rag.py                          # 임베딩 기반 메뉴 검색 (ko-sroberta)
 │   ├── dispatcher.py                       # tool_name → cart 메서드 + 도메인 검증
-│   ├── agent.py                            # run_turn: LLM 멀티 라운드트립 + 5종 가드
-│   ├── rag.py                              # 임베딩 기반 메뉴 검색 (ko-sroberta)
 │   ├── api/                                # FastAPI 셸 + 세션 + 정적 데모
-│   └── tests/                              # 87개 테스트 (unit + ollama 통합)
+│   └── tests/                              # 테스트 (unit + ollama 통합)
 ├── docs/design/                            # 아키텍처 / UI brief
 ├── scripts/                                # run_local.sh, smoke_docker.sh
 ├── Dockerfile
-├── docker-compose.yml                      # ollama / ollama-init / app
+├── docker-compose.yml                      # app만 — 호스트 Ollama 사용 (기본)
+├── docker-compose.bundled.yml              # + ollama/ollama-init 오버라이드 (풀-Docker)
 ├── Makefile
 └── requirements.txt
 ```
@@ -91,7 +128,7 @@ agent.run_turn  ── LLM 호출 1 ──┐
    └─── LLM 호출 2 (자연어 응답) ─┘
    │
    ▼
-Ollama (gemma4:e2b) — OpenAI 호환 endpoint
+Ollama (gemma4:e2b) — 호스트 네이티브, OpenAI 호환 endpoint
 ```
 
 LLM 라운드트립은 `agent.run_turn`이 다 처리한다. FastAPI는 얇은 어댑터다.
@@ -139,26 +176,41 @@ cp .env.example .env
 
 | 키 | 기본값 | 의미 |
 |----|--------|------|
-| `OLLAMA_BASE_URL` | `http://ollama:11434/v1` | OpenAI 호환 endpoint. host 직접 실행 시 `http://localhost:11434/v1` |
-| `OLLAMA_MODEL` | `gemma4:e2b` | 사용할 Ollama 모델. ollama-init 컨테이너가 이 값으로 pull |
+| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434/v1` | OpenAI 호환 endpoint. 기본은 호스트 Ollama. 풀-Docker 구성은 자동으로 `http://ollama:11434/v1`로 덮어쓴다 |
+| `OLLAMA_MODEL` | `gemma4:e2b` | 사용할 Ollama 모델. 풀-Docker 구성에서 ollama-init 컨테이너가 이 값으로 pull |
+| `CAFE_PROFILE` | `ediya` | 활성 카페. `app/cafes/<이름>/` 폴더 이름과 일치 |
 
 `.env`는 commit 금지. `.gitignore`에 박혀 있다.
+
+### 카페 교체
+
+메뉴·도메인 규칙·줄임말은 코드가 아니라 `app/cafes/<카페>/` 폴더에 있다. 다른 카페를 쓰려면:
+
+1. `app/cafes/<새카페>/` 폴더를 만들고 세 파일을 둔다 — `menu_data.yaml`(메뉴/옵션/카테고리), `system_prompt.txt`(점원 페르소나 + 도메인 규칙 + few-shot), `profile.yaml`(카페명 + 줄임말 맵).
+2. `CAFE_PROFILE=<새카페>` 로 지정.
+
+RAG 인덱스는 카페별로 분리 캐시되고, `menu_data.yaml` 변경 시 자동 재구축된다.
 
 ---
 
 ## 트러블슈팅
 
-**첫 `compose up`이 너무 오래 걸린다**
-모델(~2GB) 다운로드 중이다. `make logs-ollama`로 진행 확인. 한 번 받으면 volume에 영속화된다.
+**앱이 LLM에 연결을 못 한다 (기본 구성)**
+호스트 Ollama가 떠 있는지 확인: `curl http://localhost:11434/api/version`.
+안 뜨면 `ollama serve` 또는 Ollama.app 실행. 모델이 없으면 `ollama pull gemma4:e2b`.
+
+**응답이 극단적으로 느리다 / 모델 로딩이 안 끝난다**
+Ollama를 Docker 안에서 돌리고 있을 가능성. macOS Docker는 GPU를 못 써서 CPU 추론만 되고, 짧은 응답에도 수 분이 걸린다. 기본 구성(호스트 Ollama)으로 전환할 것. `ollama ps`로 `100% GPU`인지 확인.
 
 **`localhost:11434` 포트 충돌**
-host에서 이미 Ollama가 돌고 있을 가능성. `docker compose down` 후 host의 Ollama를 끄거나, `docker-compose.yml`에서 포트 매핑 제거.
+호스트 Ollama와 풀-Docker의 ollama 컨테이너가 둘 다 11434를 잡으려 할 때. 기본 구성에서는 호스트 Ollama만, 풀-Docker 구성에서는 컨테이너만 쓰도록 한쪽을 정리.
 
-**ARM Mac에서 응답이 느리다**
-gemma4:e2b는 ARM에서 호환되지만 메모리 압박이 크다. 다른 무거운 앱 끄고 시도. 호스트에서 직접 Ollama 띄우는 게 빠를 수도 있다 (`make install && OLLAMA_BASE_URL=http://localhost:11434/v1 make run`).
+**첫 모델 pull이 오래 걸린다**
+`gemma4:e2b`는 ~7GB다. 호스트는 `ollama pull` 진행률이 바로 보이고, 풀-Docker는 `make logs-ollama`로 확인.
 
-**메모리 부족 (OOM)**
-8GB RAM 권장. 임베딩 모델(ko-sroberta-multitask, ~400MB) + Ollama runtime + 모델까지 올라간다.
+**메모리 부족 / GPU 대신 CPU로 떨어진다**
+임베딩 모델(ko-sroberta-multitask, ~400MB) + Ollama + gemma4:e2b(~7GB)가 동시에 올라간다. 호스트 RAM 16GB 권장.
+Apple Silicon은 통합 메모리라 여유 RAM이 부족하면 Ollama가 GPU 대신 CPU로 떨어진다(`ollama ps`로 `100% GPU` 확인). 16GB 머신에서는 무거운 앱을 닫거나 재부팅으로 여유 메모리를 확보한 뒤 모델을 로드할 것.
 
 **테스트 일부 skip 됨**
 `@pytest.mark.ollama` 마크된 테스트는 Ollama 라이브 + 모델 설치 필요. `.venv/bin/pytest app/tests/ -m "not ollama"`로 제외 가능.

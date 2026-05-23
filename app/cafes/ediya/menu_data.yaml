@@ -3,6 +3,44 @@
 # 사이즈: L (Large 18oz) / EX (Extra)
 # 디카페인은 별도 카테고리(공식 분류 따름)
 
+# ====================
+# 카테고리 정의
+# - descriptor: 임베딩 검색용 자연어 설명 (rag._menu_to_descriptor)
+# - keywords:   키워드 검색용 트리거 어휘 (menu.keyword_menu_search)
+# ====================
+categories:
+  coffee:
+    descriptor: "커피 음료, 에스프레소 기반"
+    keywords: ["커피", "아메리카노", "라떼"]
+  cold_brew:
+    descriptor: "콜드브루 커피, 깔끔하고 부드러운 맛"
+    keywords: ["콜드브루"]
+  decaf:
+    descriptor: "디카페인 커피, 카페인 없음"
+    keywords: ["디카페인"]
+  beverage:
+    descriptor: "비커피 음료, 부드러운 맛"
+    keywords: ["음료", "밀크", "녹차"]
+  tea:
+    descriptor: "차, 카페인 적거나 없음, 향긋한 맛"
+    keywords: ["차", "티"]
+  bubble_tea:
+    descriptor: "버블티, 쫄깃한 펄 들어간 달콤한 음료"
+    keywords: ["버블", "버블티"]
+  flatccino:
+    descriptor: "플랫치노, 진하고 달콤한 블렌딩 음료"
+    keywords: ["플랫치노", "프라푸치노", "프라페"]
+  ade:
+    descriptor: "에이드, 상큼하고 시원한 음료"
+    keywords: ["에이드", "스무디"]
+  bakery:
+    descriptor: "베이커리, 빵/디저트"
+    keywords: ["빵", "와플", "베이글", "프레첼"]
+  ice_flakes:
+    descriptor: "빙수, 시원한 디저트"
+    keywords: ["빙수"]
+
+# tags 필드: 메뉴명에서 유도할 수 없는 의미 속성 (맛 등). 임베딩 descriptor 보강용.
 menus:
   # ====================
   # COFFEE (15개)
@@ -27,50 +65,62 @@ menus:
     en: "Iced Condensed Milk Latte"
     category: "coffee"
     base_price_l: 5500
+    tags: ["달콤한"]
   - kr: "핫연유라떼"
     en: "Hot Condensed Milk Latte"
     category: "coffee"
     base_price_l: 5500
+    tags: ["달콤한"]
   - kr: "아이스헤이즐넛라떼"
     en: "Iced Hazelnut Latte"
     category: "coffee"
     base_price_l: 5200
+    tags: ["달콤한"]
   - kr: "핫헤이즐넛라떼"
     en: "Hot Hazelnut Latte"
     category: "coffee"
     base_price_l: 5200
+    tags: ["달콤한"]
   - kr: "아이스카페모카"
     en: "Iced Mocha"
     category: "coffee"
     base_price_l: 5500
+    tags: ["달콤한"]
   - kr: "핫카페모카"
     en: "Hot Mocha"
     category: "coffee"
     base_price_l: 5500
+    tags: ["달콤한"]
   - kr: "아이스카라멜마끼아또"
     en: "Iced Caramel Macchiato"
     category: "coffee"
     base_price_l: 5500
+    tags: ["달콤한"]
   - kr: "핫카라멜마끼아또"
     en: "Hot Caramel Macchiato"
     category: "coffee"
     base_price_l: 5500
+    tags: ["달콤한"]
   - kr: "아이스바닐라라떼"
     en: "Iced Vanilla Latte"
     category: "coffee"
     base_price_l: 5500
+    tags: ["달콤한"]
   - kr: "핫바닐라라떼"
     en: "Hot Vanilla Latte"
     category: "coffee"
     base_price_l: 5500
+    tags: ["달콤한"]
   - kr: "아이스화이트초콜릿모카"
     en: "Iced White Chocolate Mocha"
     category: "coffee"
     base_price_l: 5500
+    tags: ["달콤한"]
   - kr: "핫화이트초콜릿모카"
     en: "Hot White Chocolate Mocha"
     category: "coffee"
     base_price_l: 5500
+    tags: ["달콤한"]
 
   # ====================
   # COLD BREW (4개)
@@ -87,10 +137,12 @@ menus:
     en: "Condensed Milk Cold Brew"
     category: "cold_brew"
     base_price_l: 5700
+    tags: ["달콤한"]
   - kr: "흑당콜드브루"
     en: "Brown Sugar Cold Brew"
     category: "cold_brew"
     base_price_l: 5200
+    tags: ["달콤한"]
 
   # ====================
   # DECAF (4개) — 이디야는 별도 카테고리
@@ -107,10 +159,12 @@ menus:
     en: "Decaf Condensed Milk Cold Brew"
     category: "decaf"
     base_price_l: 6000
+    tags: ["달콤한"]
   - kr: "디카페인흑당콜드브루"
     en: "Decaf Brown Sugar Cold Brew"
     category: "decaf"
     base_price_l: 5500
+    tags: ["달콤한"]
 
   # ====================
   # BEVERAGE (11개)
@@ -119,10 +173,12 @@ menus:
     en: "Dalgona Milk"
     category: "beverage"
     base_price_l: 4700
+    tags: ["달콤한"]
   - kr: "흑당밀크"
     en: "Brown Sugar Milk"
     category: "beverage"
     base_price_l: 4700
+    tags: ["달콤한"]
   - kr: "아이스모카음료"
     en: "Iced Mocha Beverage"
     category: "beverage"
@@ -191,6 +247,7 @@ menus:
     en: "Brown Sugar Bubble Tea"
     category: "bubble_tea"
     base_price_l: 5700
+    tags: ["달콤한"]
   - kr: "우롱버블티"
     en: "Oolong Bubble Tea"
     category: "bubble_tea"
@@ -203,6 +260,7 @@ menus:
     en: "Mocha Flatccino"
     category: "flatccino"
     base_price_l: 5500
+    tags: ["달콤한"]
   - kr: "요거트플랫치노"
     en: "Yogurt Flatccino"
     category: "flatccino"
@@ -215,10 +273,12 @@ menus:
     en: "Mogu Mogu Lychee"
     category: "ade"
     base_price_l: 4700
+    tags: ["달콤한"]
   - kr: "모구모구피치"
     en: "Mogu Mogu Peach"
     category: "ade"
     base_price_l: 4700
+    tags: ["달콤한"]
 
   # ====================
   # BAKERY (3개) — 일부 재고 제한 (당일 한정)
@@ -247,31 +307,37 @@ menus:
     category: "ice_flakes"
     base_price_l: 6500
     stock: 3
+    tags: ["달콤한"]
   - kr: "컵망고빙수"
     en: "Cup Mango Bingsu"
     category: "ice_flakes"
     base_price_l: 7500
     stock: 0                     # 품절
+    tags: ["달콤한"]
   - kr: "컵듀오초콜릿빙수"
     en: "Cup Duo Chocolate Bingsu"
     category: "ice_flakes"
     base_price_l: 7000
     stock: 4
+    tags: ["달콤한"]
   - kr: "플레이트단팥빙수"
     en: "Plate Red Bean Bingsu"
     category: "ice_flakes"
     base_price_l: 9500
     stock: 2
+    tags: ["달콤한"]
   - kr: "플레이트망고빙수"
     en: "Plate Mango Bingsu"
     category: "ice_flakes"
     base_price_l: 11000
     stock: 0                     # 품절
+    tags: ["달콤한"]
   - kr: "플레이트듀오초콜릿빙수"
     en: "Plate Duo Chocolate Bingsu"
     category: "ice_flakes"
     base_price_l: 10000
     stock: 2
+    tags: ["달콤한"]
 
 # stock 필드 의미:
 # - 없거나 null/-1 = 무한 재고 (기본값, 음료 카테고리 전반)

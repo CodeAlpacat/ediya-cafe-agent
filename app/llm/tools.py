@@ -131,7 +131,13 @@ TOOLS = [
                     "new_options": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "New options list (replaces existing options).",
+                        "description": (
+                            "Options the user is adding/changing right now. "
+                            "Just pass the newly requested option(s) — existing unrelated "
+                            "options are kept automatically. Size/whip/sweetness/ice are "
+                            "mutually exclusive, so a new value there replaces the old one. "
+                            "Pass an empty array [] only to clear all options."
+                        ),
                     },
                 },
                 "required": ["menu", "new_options"],
