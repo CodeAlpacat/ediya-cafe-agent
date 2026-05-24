@@ -7,16 +7,16 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.app import app
-from app.api import session_manager
+from app.main import app
+from app.services import session_store
 
 
 @pytest.fixture(autouse=True)
 def _reset_store():
     """매 테스트마다 SessionStore 초기화."""
-    session_manager._store = None
+    session_store.reset_store_for_tests()
     yield
-    session_manager._store = None
+    session_store.reset_store_for_tests()
 
 
 @pytest.fixture
@@ -26,11 +26,12 @@ def client():
 
 @pytest.fixture
 def mock_process_message(monkeypatch):
-    """conversation_handler.process_message를 결정론적 mock으로 교체.
+    """chat_service.process_message를 결정론적 mock으로 교체.
 
     "아메리카노" 포함하면 add_menu 흉내 — cart에 직접 항목 추가.
     """
-    async def _mock(message, cart, history, config=None):
+    async def _mock(client, message, cart, history, config=None):
+        events_before = len(cart.history_snapshot())
         if "아메리카노" in message:
             cart.add(menu="아이스아메리카노", quantity=1, options=[])
             reply = "아이스아메리카노 한 잔 담아드렸어요."
@@ -40,10 +41,12 @@ def mock_process_message(monkeypatch):
             reply = "주문하실 메뉴를 말씀해 주세요."
         history.append({"role": "user", "content": message})
         history.append({"role": "assistant", "content": reply})
-        return reply, cart.snapshot()
+        new_events = cart.history_snapshot()[events_before:]
+        return reply, cart.snapshot(), [], new_events
 
+    # 라우터가 import한 심볼을 직접 교체 (모듈 이름이 아닌 라우터의 바인딩)
     monkeypatch.setattr(
-        "app.api.app.process_message", _mock, raising=True
+        "app.api.routers.chat.process_message", _mock, raising=True
     )
 
 

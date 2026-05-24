@@ -88,6 +88,15 @@ def get_menu_price(menu_kr: str) -> Optional[int]:
     return item.get("base_price_l")
 
 
+def get_option_price_delta(option_kr: str) -> int:
+    """옵션 1개의 가격 가산값. 옵션이 사전에 없으면 0."""
+    for cat in _option_categories():
+        for o in cat["options"]:
+            if o["kr"] == option_kr:
+                return int(o.get("price_delta") or 0)
+    return 0
+
+
 def get_menu_stock(menu_kr: str) -> Optional[int]:
     """메뉴의 재고 수량 반환.
 

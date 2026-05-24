@@ -81,22 +81,42 @@ GPU 가속이 없어 CPU 추론이며 macOS에서는 매우 느리다 — Linux/
 ```
 ediya-cafe-agent/
 ├── app/
+│   ├── main.py                             # FastAPI 팩토리 + lifespan (entrypoint: app.main:app)
+│   ├── core/                               # 교차 관심사
+│   │   ├── config.py                       #   Settings(BaseSettings) — env/.env 일원화
+│   │   └── logging.py                      #   setup_logging — lifespan startup에서 호출
+│   ├── api/                                # HTTP 경계
+│   │   ├── schemas.py                      #   요청/응답 Pydantic 모델
+│   │   ├── deps.py                         #   Depends 프로바이더 (settings/store/client)
+│   │   ├── middleware.py                   #   request/response 로깅
+│   │   └── routers/                        #   엔드포인트별 라우터
+│   │       ├── chat.py                     #     POST /chat
+│   │       ├── cart.py                     #     GET /cart, POST /clear
+│   │       ├── health.py                   #     GET /health
+│   │       └── static.py                   #     / + /static mount
+│   ├── services/                           # use-case 레이어 (HTTP 무관)
+│   │   ├── chat_service.py                 #   process_message (asyncio.to_thread wrap)
+│   │   ├── cart_pricing.py                 #   enrich + total 계산
+│   │   └── session_store.py                #   in-memory 세션 + 정기 정리
+│   ├── llm/                                # LLM 레이어
+│   │   ├── client.py                       #   OpenAI 호환 클라이언트 팩토리
+│   │   ├── prompts.py                      #   활성 카페의 system_prompt.txt 로드
+│   │   ├── tools.py                        #   7개 OpenAI Function Call 스키마
+│   │   ├── rag.py                          #   임베딩 기반 메뉴 검색 (ko-sroberta)
+│   │   └── agent/                          #   run_turn + 가드/힌트 패키지
+│   │       ├── runner.py                   #     run_turn 본 루프 + AgentConfig
+│   │       ├── guards.py                   #     P0/P3 가드 + silent-add 복구
+│   │       └── hints.py                    #     발화 분석 + system hint 생성
+│   ├── dispatcher.py                       # tool_name → cart 메서드 + 도메인 검증
+│   ├── domain/                             # 도메인 레이어 — LLM/웹 비의존
+│   │   ├── cart.py                         #   카트 상태 (검증은 dispatcher가)
+│   │   └── menu.py                         #   메뉴 로더 + 검증 + 키워드 검색
+│   ├── cafe_profile.py                     # 활성 카페(CAFE_PROFILE) 로더
 │   ├── cafes/                              # 카페별 콘텐츠 — 교체 단위
 │   │   └── ediya/                          #   CAFE_PROFILE=ediya
 │   │       ├── menu_data.yaml              #   52종 메뉴 + 카테고리 + 옵션
 │   │       ├── system_prompt.txt           #   시스템 프롬프트 전문 + few-shot
 │   │       └── profile.yaml                #   카페명 + 줄임말 맵
-│   ├── cafe_profile.py                     # 활성 카페(CAFE_PROFILE) 로더
-│   ├── domain/                             # 도메인 레이어 — LLM/웹 비의존
-│   │   ├── cart.py                         # 카트 상태 (검증은 dispatcher가)
-│   │   └── menu.py                         # 메뉴 로더 + 검증 + 키워드 검색
-│   ├── llm/                                # LLM 레이어
-│   │   ├── agent.py                        # run_turn: 멀티 라운드트립 + 가드
-│   │   ├── tools.py                        # 7개 OpenAI Function Call 스키마
-│   │   ├── prompts.py                      # 활성 카페의 system_prompt.txt 로드
-│   │   └── rag.py                          # 임베딩 기반 메뉴 검색 (ko-sroberta)
-│   ├── dispatcher.py                       # tool_name → cart 메서드 + 도메인 검증
-│   ├── api/                                # FastAPI 셸 + 세션 + 정적 데모
 │   └── tests/                              # 테스트 (unit + ollama 통합)
 ├── docs/design/                            # 아키텍처 / UI brief
 ├── scripts/                                # run_local.sh, smoke_docker.sh
@@ -115,13 +135,13 @@ ediya-cafe-agent/
 브라우저 (좌 채팅 / 우 카트)
    │  HTTP
    ▼
-FastAPI (app/api/app.py)
+FastAPI (app/main.py + app/api/routers/*)
    │  /chat, /cart, /clear, /health
    ▼
 SessionStore (in-memory, per-session lock)
    │
    ▼
-agent.run_turn  ── LLM 호출 1 ──┐
+llm.agent.run_turn ── LLM 호출 1 ──┐
    │                            │ tool_calls?
    │ ◄──── tool result ◄── dispatcher (Cart 변경 + 검증)
    │                            │

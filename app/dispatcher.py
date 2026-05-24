@@ -19,6 +19,19 @@ from app.domain.menu import (
 
 logger = logging.getLogger("ediya.dispatcher")
 
+# 카테고리 가족명만 들어온 모호 발화. 정확한 메뉴명 매칭이 안 되면
+# AMBIGUOUS_MENU로 응답해 모델이 사용자에게 되묻도록.
+_FAMILY_NAMES = {
+    "라떼", "커피", "차", "에이드", "스무디", "빙수",
+    "프라푸치노", "프라페", "플랫치노", "콜드브루",
+}
+
+
+def _is_family_name(menu: str) -> bool:
+    """'라떼', '커피' 같이 종류만 가리키는 가족명 발화인지."""
+    name = menu.strip()
+    return name in _FAMILY_NAMES
+
 
 def _check_stock(cart: Cart, menu_kr: str, additional_quantity: int) -> Dict[str, Any] | None:
     """add_menu 또는 replace_menu 처리 전 stock 검증.
@@ -78,6 +91,19 @@ def _add_menu(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
     options = list(args.get("options") or [])
 
     if not is_valid_menu(menu):
+        # 가족명("라떼") 발화는 INVALID 대신 AMBIGUOUS로 분리 — 모델이
+        # "잘못된 메뉴" 거절 대신 "어떤 라떼?" 되묻기로 가도록.
+        if _is_family_name(menu):
+            candidates = [c["kr"] for c in keyword_menu_search(menu, max_k=6)]
+            return {
+                "status": "AMBIGUOUS_MENU",
+                "menu": menu,
+                "candidates": candidates,
+                "error_detail": (
+                    f"'{menu}'는 종류만 가리키는 이름이에요. "
+                    f"후보 중 어떤 메뉴인지 사용자에게 되물으세요."
+                ),
+            }
         # P2 mitigation: 비슷한 메뉴 후보 제시 (모델이 사용자에게 안내할 수 있도록)
         suggestions = find_similar_menus(menu, max_k=3)
         return {
@@ -136,7 +162,9 @@ def _replace_menu(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
 
 # 같은 카테고리 내에서 하나만 유효한(상호배타) 옵션 카테고리.
 # 새 옵션이 들어오면 같은 카테고리의 기존 옵션을 대체한다.
-_EXCLUSIVE_OPT_CATEGORIES = {"사이즈", "휘핑선택", "당도선택", "얼음선택"}
+# - 샷추가: 1샷/투샷/트리플샷이 같은 카테고리, 사용자는 한 번에 하나만 의도.
+# - 시럽추가: 누적 (헤이즐넛+바닐라 동시 가능) — 제외.
+_EXCLUSIVE_OPT_CATEGORIES = {"사이즈", "샷추가", "휘핑선택", "당도선택", "얼음선택"}
 
 
 def _merge_options(existing: List[str], new: List[str]) -> List[str]:
@@ -164,8 +192,22 @@ def _change_option(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
     if opt_err:
         return opt_err
 
-    # new_options가 비어 있으면 '옵션 전체 해제' 의도 — 그대로 빈 리스트로 설정.
-    # 비어 있지 않으면 기존 옵션과 병합해 의도치 않은 옵션 소실을 막는다.
+    # 카트에 menu가 없으면 → 사용자 의도가 "옵션 변경"이 아니라 "이 메뉴를 옵션과 함께
+    # 새로 담기"일 가능성이 99%. 자동으로 add_menu 경로로 fallback.
+    # ("아아에 샷추가" → 모델이 change_option 호출해도 코드가 add로 흡수)
+    in_cart = any(it["menu"] == menu for it in cart.snapshot())
+    if not in_cart:
+        fallback_args = {"menu": menu, "quantity": 1, "options": new_options}
+        result = _add_menu(cart, fallback_args)
+        if result.get("status") in ("ADDED", "INCREMENTED"):
+            result["auto_fallback_from"] = "change_option"
+            logger.info(
+                "change_option → add_menu autofallback: menu=%s options=%s",
+                menu, new_options,
+            )
+        return result
+
+    # 기존 경로 — 카트에 menu가 있으면 옵션만 병합 갱신
     if not new_options:
         merged = []
     else:
@@ -259,6 +301,11 @@ def _done(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
     return {"status": "ORDER_COMPLETED", "cart": cart.snapshot()}
 
 
+def _undo(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
+    """가장 최근 카트 변경 1건 되돌리기."""
+    return cart.undo()
+
+
 _HANDLERS = {
     "add_menu": _add_menu,
     "remove_menu": _remove_menu,
@@ -267,11 +314,53 @@ _HANDLERS = {
     "check_cart": _check_cart,
     "inquire_menu_info": _inquire_menu_info,
     "done": _done,
+    "undo": _undo,
+}
+
+# 모델이 우리 tool 이름을 줄여서 또는 비슷한 이름으로 호출하는 케이스 흡수.
+# E2B는 "add", "remove", "checkout" 같이 단순화하는 경향이 있음 — 잘못된 schema
+# 때문에 카트가 전혀 안 변경되느니, fuzzy alias로 흡수하는 편이 사용자 의도와 맞음.
+_TOOL_ALIASES = {
+    "add": "add_menu",
+    "add_item": "add_menu",
+    "add_product": "add_menu",
+    "order": "add_menu",
+    "remove": "remove_menu",
+    "remove_item": "remove_menu",
+    "cancel": "remove_menu",
+    "replace": "replace_menu",
+    "swap": "replace_menu",
+    "change": "change_option",
+    "change_options": "change_option",
+    "update_options": "change_option",
+    "update_order": "change_option",
+    "show_cart": "check_cart",
+    "view_cart": "check_cart",
+    "get_cart": "check_cart",
+    "menu_info": "inquire_menu_info",
+    "inquire": "inquire_menu_info",
+    "query": "inquire_menu_info",
+    "finish": "done",
+    "complete": "done",
+    "checkout": "done",
+    "revert": "undo",
+    "rollback": "undo",
 }
 
 
 def dispatch_tool(name: str, args: Dict[str, Any], cart: Cart) -> Dict[str, Any]:
+    """Tool 이름이 정확하지 않아도 fuzzy alias로 흡수."""
     handler = _HANDLERS.get(name)
     if handler is None:
-        return {"status": "UNKNOWN_TOOL", "tool_name": name}
+        canonical = _TOOL_ALIASES.get(name)
+        if canonical and canonical in _HANDLERS:
+            logger.info("tool name alias: %s -> %s", name, canonical)
+            result = _HANDLERS[canonical](cart, args)
+            result["_alias_from"] = name
+            return result
+        return {
+            "status": "UNKNOWN_TOOL",
+            "tool_name": name,
+            "available": list(_HANDLERS.keys()),
+        }
     return handler(cart, args)

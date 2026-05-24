@@ -2,60 +2,162 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>이디야 커피 ☕ — 로컬 챗봇 데모</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#faf6f0" />
+  <title>이디야 — 로컬 주문 데모</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
+  />
+  <link rel="stylesheet" href="/static/style.css?v=3" />
 </head>
-<body>
-  <header class="topbar">
+<body data-tab="chat">
+  <!-- ============ HEADER ============ -->
+  <header class="app-header" role="banner">
     <div class="brand">
-      <span class="brand-mark">☕</span>
-      <div>
-        <h1>이디야 커피</h1>
-        <p class="brand-sub">Gemma 4 E2B 로컬 데모</p>
+      <span class="brand-mark" aria-hidden="true">e</span>
+      <div class="brand-text">
+        <h1>이디야</h1>
+        <p class="brand-meta">로컬 주문 데모</p>
       </div>
     </div>
-    <button id="reset-btn" class="reset-btn" type="button">🧹 대화 초기화</button>
+    <div class="header-actions">
+      <div class="status-pill" id="status-pill" data-state="ready" role="status" aria-live="polite">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="status-text">gemma4:e2b · 연결됨</span>
+      </div>
+      <button id="debug-btn" type="button" class="ghost-btn" aria-pressed="false" title="모든 도구 호출 펼치기/접기">
+        디버그
+      </button>
+      <button id="reset-btn" type="button" class="ghost-btn" aria-label="대화 초기화">
+        대화 초기화
+      </button>
+    </div>
   </header>
 
-  <main class="layout">
-    <section class="chat-pane" aria-label="chat">
-      <div id="messages" class="messages">
-        <div class="bubble bubble-bot">
-          안녕하세요. 이디야 커피입니다. <br />
-          어떤 음료를 드릴까요?
+  <!-- mobile segmented control -->
+  <nav class="seg" role="tablist" aria-label="화면 전환">
+    <button class="seg-btn" role="tab" data-tab="menu" aria-selected="false">메뉴</button>
+    <button class="seg-btn is-active" role="tab" data-tab="chat" aria-selected="true">채팅</button>
+    <button class="seg-btn" role="tab" data-tab="order" aria-selected="false">
+      주문 <span class="seg-badge" id="seg-badge-order" hidden>0</span>
+    </button>
+  </nav>
+
+  <!-- ============ MAIN — 3 column ============ -->
+  <main class="app-main">
+
+    <!-- ─── ① catalog pane ─── -->
+    <aside class="catalog-pane pane" data-pane="menu" aria-label="메뉴 카탈로그">
+      <header class="pane-head">
+        <h2>메뉴</h2>
+        <span class="pane-meta" id="catalog-meta"></span>
+      </header>
+      <div class="catalog-scroll" id="catalog-scroll">
+        <!-- JS가 카테고리/메뉴 그룹을 채움 -->
+        <div class="catalog-loading">메뉴 불러오는 중…</div>
+      </div>
+    </aside>
+
+    <!-- ─── ② transcript pane ─── -->
+    <section class="transcript-pane pane is-active" data-pane="chat" aria-label="대화">
+      <div class="transcript-scroll" id="transcript">
+        <div class="welcome" id="welcome">
+          <h2 class="welcome-title">무엇을 드릴까요?</h2>
+          <p class="welcome-sub">
+            주문이든 메뉴 문의든 자연스럽게 말씀해 주세요. 좌측 카탈로그에서 직접 골라도 됩니다.
+          </p>
         </div>
       </div>
-      <form id="composer" class="composer">
+
+      <div class="suggestions" id="suggestions" aria-label="추천 입력">
+        <button class="chip" data-prompt="아이스 아메리카노 두 잔 주세요" type="button">
+          <span class="chip-tag">주문</span><span class="chip-text">아메리카노 두 잔</span>
+        </button>
+        <button class="chip" data-prompt="아아 하나만 담아주세요" type="button">
+          <span class="chip-tag">줄임말</span><span class="chip-text">아아 하나만</span>
+        </button>
+        <button class="chip" data-prompt="라떼에 투샷 추가해주세요" type="button">
+          <span class="chip-tag">옵션</span><span class="chip-text">투샷 추가</span>
+        </button>
+        <button class="chip" data-prompt="디카페인 있어요?" type="button">
+          <span class="chip-tag">문의</span><span class="chip-text">디카페인 있어요?</span>
+        </button>
+        <button class="chip" data-prompt="단 거 추천해주세요" type="button">
+          <span class="chip-tag">추천</span><span class="chip-text">단 거 추천</span>
+        </button>
+        <button class="chip" data-prompt="방금 한 거 되돌려주세요" type="button">
+          <span class="chip-tag">되돌리기</span><span class="chip-text">되돌리기</span>
+        </button>
+      </div>
+
+      <form id="composer" class="composer" autocomplete="off">
+        <label for="input" class="visually-hidden">메시지</label>
         <textarea
           id="input"
           rows="1"
-          placeholder="어떤 음료를 드릴까요? (예: 아이스 아메리카노 한 잔)"
-          autofocus
+          maxlength="500"
+          placeholder="메시지를 입력하세요"
+          aria-label="메시지 입력"
         ></textarea>
-        <button id="send" type="submit" aria-label="전송">
-          <span class="send-arrow">↑</span>
-        </button>
+        <div class="composer-meta">
+          <span class="kbd-hint" aria-hidden="true"><kbd>Enter</kbd> 전송 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈</span>
+          <button id="send" type="submit" class="send-btn" aria-label="전송">
+            <span class="send-label">전송</span>
+            <svg class="send-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M2.5 7h9M7 2.5L11.5 7 7 11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="send-spinner" aria-hidden="true"></span>
+          </button>
+        </div>
       </form>
     </section>
 
-    <aside class="cart-pane" aria-label="cart">
-      <h2 class="cart-title">🛒 장바구니</h2>
-      <div id="cart-list" class="cart-list">
-        <div class="cart-empty">
-          <p>아직 담긴 메뉴가 없어요</p>
-          <small>채팅으로 주문해 보세요</small>
+    <!-- ─── ③ order (receipt) pane ─── -->
+    <aside class="order-pane pane" data-pane="order" aria-label="주문 내역">
+      <header class="pane-head">
+        <h2>주문 내역</h2>
+        <span class="pane-meta" id="order-meta"></span>
+      </header>
+      <div class="order-scroll">
+        <ol id="cart-list" class="cart-list" aria-live="polite"></ol>
+        <p class="cart-empty" id="cart-empty">장바구니가 비어 있습니다</p>
+      </div>
+      <footer class="order-foot" id="order-foot" hidden>
+        <div class="foot-row foot-row-sub">
+          <span>항목</span>
+          <span id="line-count" class="num">0</span>
         </div>
-      </div>
-      <div id="cart-total" class="cart-total hidden">
-        <span>합계</span>
-        <strong id="total-amount">0원</strong>
-      </div>
+        <div class="foot-row foot-row-total">
+          <span>합계</span>
+          <span id="total-amount" class="num">0원</span>
+        </div>
+        <button id="undo-btn" type="button" class="undo-btn" disabled>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M3 5h5a2.5 2.5 0 010 5H6M3 5l2-2M3 5l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>방금 한 거 되돌리기</span>
+        </button>
+      </footer>
     </aside>
   </main>
 
-  <div id="toast-host" class="toast-host" aria-live="polite"></div>
+  <!-- option picker popover — single instance reused -->
+  <div id="option-popover" class="option-popover" role="dialog" aria-label="옵션 변경" hidden>
+    <div class="option-popover-head">
+      <strong id="option-popover-title">옵션</strong>
+      <button type="button" class="popover-close" id="option-popover-close" aria-label="닫기">×</button>
+    </div>
+    <div class="option-popover-body" id="option-popover-body"></div>
+  </div>
 
-  <script src="/static/app.js"></script>
+  <!-- catalog hover popover (옵션 미리보기) -->
+  <div id="hover-popover" class="hover-popover" hidden></div>
+
+  <!-- toast region -->
+  <div id="toast-host" class="toast-host" aria-live="assertive" aria-atomic="true"></div>
+
+  <script src="/static/app.js?v=3" defer></script>
 </body>
 </html>

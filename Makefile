@@ -15,7 +15,7 @@ install: ## venv 생성 + 의존성 설치
 	.venv/bin/pip install -r requirements.txt
 
 run: ## host에서 직접 uvicorn 실행 (Ollama는 별도로 떠 있어야 함)
-	OLLAMA_BASE_URL=http://localhost:11434/v1 .venv/bin/uvicorn app.api.app:app --host 0.0.0.0 --port 8080 --reload
+	OLLAMA_BASE_URL=http://localhost:11434/v1 .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 
 test: ## unit + api 테스트 (ollama 마커 제외)
 	.venv/bin/pytest app/tests/ -m "not ollama" -v

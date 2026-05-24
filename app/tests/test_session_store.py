@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from app.api.session_manager import SessionStore, MAX_SESSIONS
+from app.services.session_store import SessionStore, MAX_SESSIONS
 
 
 def test_get_or_create_returns_same_state_on_repeat():

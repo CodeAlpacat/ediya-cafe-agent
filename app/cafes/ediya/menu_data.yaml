@@ -360,8 +360,12 @@ option_categories:
     en: "Add Shot"
     is_essential: false
     applicable_categories: ["coffee", "cold_brew", "decaf"]
+    # 횟수형 옵션. 사용자가 "투샷/트리플샷" 같이 횟수를 명시할 수 있어
+    # 같은 카테고리 내에서는 상호배타로 처리한다 (dispatcher._EXCLUSIVE_OPT_CATEGORIES).
     options:
       - {kr: "샷추가", en: "Add Shot", price_delta: 500}
+      - {kr: "투샷추가", en: "Add 2 Shots", price_delta: 1000}
+      - {kr: "트리플샷추가", en: "Add 3 Shots", price_delta: 1500}
 
   - kr: "시럽추가"
     en: "Syrup"

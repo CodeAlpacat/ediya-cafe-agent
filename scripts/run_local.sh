@@ -12,4 +12,4 @@ fi
 export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://localhost:11434/v1}"
 export OLLAMA_MODEL="${OLLAMA_MODEL:-gemma4:e2b}"
 
-exec .venv/bin/uvicorn app.api.app:app --host 0.0.0.0 --port 8080 --reload
+exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload

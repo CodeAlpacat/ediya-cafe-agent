@@ -196,4 +196,23 @@ TOOLS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "undo",
+            "description": (
+                "Undo the most recent cart change (add/remove/replace/change_option). "
+                "Use when the user explicitly wants to revert their last action. "
+                "Korean trigger examples: "
+                "'아까 한 거 되돌려' / "
+                "'방금 취소한 거 다시 살려' / "
+                "'원래대로 해주세요' / "
+                "'되돌리기' / "
+                "'아 잘못 말했어요'. "
+                "Do NOT call this for a NEW removal request — use remove_menu instead. "
+                "Returns NOTHING_TO_UNDO if there is no recorded change."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
 ]

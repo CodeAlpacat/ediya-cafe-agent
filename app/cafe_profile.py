@@ -7,20 +7,20 @@
 """
 from __future__ import annotations
 
-import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict
 
 import yaml
 
+from app.core.config import get_settings
+
 CAFES_DIR = Path(__file__).resolve().parent / "cafes"
-DEFAULT_CAFE = "ediya"
 
 
 def active_cafe() -> str:
-    """현재 활성 카페 이름. CAFE_PROFILE 환경변수, 기본값 'ediya'."""
-    return os.getenv("CAFE_PROFILE", DEFAULT_CAFE).strip() or DEFAULT_CAFE
+    """현재 활성 카페 이름. `Settings.cafe_profile` 값(기본 'ediya')."""
+    return get_settings().cafe_profile.strip() or "ediya"
 
 
 def cafe_dir() -> Path:
