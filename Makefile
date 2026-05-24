@@ -1,4 +1,4 @@
-.PHONY: help install run test test-all pull-model up up-bundled logs-ollama down restart logs status smoke clean
+.PHONY: help install run test test-all eval pull-model up up-bundled logs-ollama down restart logs status smoke clean
 
 # .env가 있으면 읽어들이고, 없으면 아래 기본값 사용
 -include .env
@@ -22,6 +22,9 @@ test: ## unit + api 테스트 (ollama 마커 제외)
 
 test-all: ## 전체 테스트 (ollama 라이브 필요)
 	.venv/bin/pytest app/tests/ -v
+
+eval: ## 손님 시나리오 30개 평가 (uvicorn + Ollama 모두 떠 있어야 함)
+	.venv/bin/python scripts/eval.py
 
 # --- 기본 구성: 앱만 Docker, Ollama는 호스트 (권장, macOS) ---
 pull-model: ## 호스트 Ollama에 모델 받기 (OLLAMA_MODEL)
