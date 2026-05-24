@@ -155,25 +155,41 @@ LLM 라운드트립은 `agent.run_turn`이 다 처리한다. FastAPI는 얇은 �
 
 ---
 
-## E2B에서 작은 모델을 안정적으로 쓰기 위한 5가지 가드
+## LLM-first 설계 — 사전 누적 X, 모델 신뢰
 
-작은 모델은 한국어 발화 라우팅이 흔들린다. 모든 가드는 **agent layer dynamic hint injection** 패턴으로 처리한다. 시스템 프롬프트 강화는 회귀 위험이 커서 안 쓴다.
+작은 모델의 한국어 라우팅 실패를 처음엔 **가드 누적**으로, 그 다음 **NLU 사전 누적**으로 해결하려 했지만 둘 다 *기술 부채*. 메뉴/카페 변경 시 코드 PR이 필요했다. 지금 설계는 정반대:
 
-| 코드 | 한계 | 처리 |
-|------|------|------|
-| P0 | 모델이 "담았어요" 응답하고 도구 안 부름 (silent corruption) | confirmation 동사 감지 + 1회 retry → fallback |
-| P2 | 메뉴 hallucination ("단팥빙수 없어요" 거짓 거절) | RAG Step 1: 키워드 매칭으로 후보를 system hint로 주입 |
-| P3 | 10턴+ 동일 tool_call 반복 (stuck loop) | (name+args) 3회 매칭 시 break + fallback 응답 |
-| P4 | "아까 시킨 거" 같은 referential pronoun | cart 마지막 항목을 hint로 주입 |
-| inquire→add 라우팅 | 메뉴 안내 받고 주문해도 inquiry 모드에 stuck | post-inquiry hint로 add_menu 강제 |
+```
+사용자 발화
+  → 매 턴 [메뉴 후보 / 옵션 사전 / 슬랭 사전 / 매장 미보유 항목] 동적 inject
+  → LLM이 직접 추론 + tool API 호출
+  → dispatcher 검증 (메뉴 실재 / 옵션 / 재고)
+  → 자연어 응답
+```
 
-세 lever를 시험해본 결과:
-- Tool description 변경 → whack-a-mole. 회귀 빈발.
-- System prompt 강화 ("★ 최우선 규칙 ★") → 점수 떨어짐 (6/9 → 4/9).
-- `tool_choice="required"` → Ollama가 무시.
-- **agent layer dynamic hint injection** → 회귀 0, 정밀 처치.
+원칙 5가지:
 
-자세한 설계 노트는 `docs/design/DESIGN.md`.
+1. **메뉴는 데이터, 코드 X.** YAML이 single source of truth. 매 턴 LLM context로 inject — 메뉴 추가 시 YAML 1줄, 코드 0줄.
+2. **도메인 룰은 system prompt에 자연어로.** "디카페인은 콜드브루로만" 같은 룰을 코드 매핑 X, 한국어 한 문장으로.
+3. **슬랭은 profile.yaml에 데이터로.** 카페별 줄임말 사전. 코드 lock-in X.
+4. **사전 밖 발화는 LLM에 위임.** 모델이 못 잡으면 자연스럽게 되묻기. 패턴 사전 누적은 끝없는 작업.
+5. **가드는 critical 2개만.** stuck_loop (무한 round-trip 방지) + tool_hallucination (\`\`\`json 텍스트 검출). 의미 추론 가드는 모델 자유도 침범 → 금지.
+
+### 점수
+
+| 측정 | 결과 |
+|------|------|
+| eval 60 시나리오 (real-user 다양화 — 슬랭/오타/부정/추론 포함) | **57/60 (95%)** × 3회, 변동성 0 |
+| 단위 테스트 | 90 passed |
+| 메뉴 추가 robust | YAML 1줄 추가 → 코드 변경 X |
+
+이전 시도(NLU 사전화)는 30 시나리오에서 83%였지만 그건 *우리가 짠 사전*의 거울. real-user 다양화에서는 사전 누적의 한계가 드러났다. LLM-first는 사전 외 발화도 자연스럽게 처리.
+
+### 모델 한계
+
+작은 모델(gemma4:e2b, 2.3B)에서는 95%가 천장. 남은 5%는 (a) "아아" 슬랭을 사전 명시했는데도 모델이 되묻기 (b) 복합 발화 silent tool call. 더 올리려면 모델 사이즈 ↑ (Claude haiku/GPT-4o-mini 권장 — 같은 LLM-first 구조에서 99%+ 예상).
+
+자세한 설계 노트는 `docs/plans/PLAN_llm_first.md`.
 
 ---
 

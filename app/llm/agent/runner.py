@@ -1,9 +1,11 @@
-"""에이전트 본 루프: NLU 사전처리 → LLM round-trip → dispatcher.
+"""에이전트 본 루프 — LLM-first 설계.
 
-설계 원칙 (PLAN_nlu_refactor):
-- NLU(`app.nlu`)가 결정론 영역을 모두 처리한다 (슬랭/온도/디카페인/옵션 매핑).
-- 모델에게는 IntentProposal 1개를 system message로 inject. 누적 hint 금지.
-- 모델 자유도가 좁아져서 가드 누적 불필요 (stuck_loop만 안전망으로 유지).
+원칙 (PLAN_llm_first):
+- 메뉴 데이터는 코드에 박지 않는다. 매 턴 [메뉴 후보/옵션 사전/매장 미보유]
+  컨텍스트를 system msg로 dynamic inject — LLM이 단일 진실 소스로 사용.
+- 슬랭/도메인 룰은 system_prompt에 자연어로 명시. 패턴매칭 사전 X.
+- 가드는 stuck_loop만 유지 — 다른 가드 누적은 LLM 신뢰를 깎음.
+- second-call(자연어 응답)은 LLM 강점 영역, 그대로 둠.
 """
 from __future__ import annotations
 
@@ -17,19 +19,20 @@ from openai import OpenAI
 from app.core.config import get_settings
 from app.dispatcher import dispatch_tool
 from app.domain.cart import Cart
-from app.llm.agent.guards import is_stuck_loop
-from app.llm.agent.proposal_renderer import render_proposal
+from app.llm.agent.guards import (
+    TOOL_HALLUCINATION_RETRY_HINT,
+    is_stuck_loop,
+    looks_tool_hallucination,
+)
+from app.llm.menu_context import build_menu_context
 from app.llm.prompts import SYSTEM_PROMPT
 from app.llm.tools import TOOLS
-from app.nlu import extract_intent
 
 logger = logging.getLogger("ediya.agent")
 
 
 @dataclass
 class AgentConfig:
-    """run_turn 동작 파라미터. 기본값은 Settings에서 가져온다."""
-
     model: str = field(default_factory=lambda: get_settings().ollama_model)
     base_url: str = field(default_factory=lambda: get_settings().ollama_base_url)
     api_key: str = field(default_factory=lambda: get_settings().ollama_api_key)
@@ -41,7 +44,6 @@ class AgentConfig:
 
 
 def make_client(config: Optional[AgentConfig] = None) -> OpenAI:
-    """편의 팩토리. AgentConfig 기반 OpenAI 호환 클라이언트."""
     cfg = config or AgentConfig()
     return OpenAI(base_url=cfg.base_url, api_key=cfg.api_key)
 
@@ -53,7 +55,7 @@ def chat_once(
     history: Optional[List[Dict[str, Any]]] = None,
     tool_choice: str = "auto",
 ) -> Dict[str, Any]:
-    """단일턴 LLM 호출 1회. 테스트/디버그 용."""
+    """단일턴 LLM 호출 — 테스트/디버그 용. dynamic menu inject 미적용."""
     cfg = config or AgentConfig()
     messages: List[Dict[str, Any]] = []
     if history:
@@ -94,9 +96,9 @@ def chat_once(
 
 
 def _prepare_history(history: List[Dict[str, Any]]) -> None:
-    """직전 턴에 inject된 NLU system 메시지를 제거. SYSTEM_PROMPT(index 0)는 유지.
+    """직전 턴의 dynamic menu context system msg 제거. SYSTEM_PROMPT(index 0)는 유지.
 
-    NLU 분석은 발화마다 새로 만든다. 이전 턴의 분석이 남아있으면 컨텍스트 오염.
+    메뉴 컨텍스트는 발화마다 새로 만든다. 누적되면 stale 데이터로 LLM 혼란.
     """
     if not history:
         history.append({"role": "system", "content": SYSTEM_PROMPT})
@@ -107,7 +109,6 @@ def _prepare_history(history: List[Dict[str, Any]]) -> None:
 def _dispatch_tool_calls(
     msg_tool_calls, history: List[Dict[str, Any]], cart: Cart
 ) -> int:
-    """assistant tool_calls 메시지 + 각 도구 결과를 history에 append."""
     history.append(
         {
             "role": "assistant",
@@ -158,9 +159,9 @@ def run_turn(
     history: List[Dict[str, Any]],
     config: Optional[AgentConfig] = None,
 ) -> str:
-    """멀티 round-trip: NLU → IntentProposal inject → LLM ↔ dispatcher.
+    """LLM-first 흐름: 메뉴 컨텍스트 inject → LLM ↔ dispatcher round-trip.
 
-    history는 in-place로 갱신됨. 최종 자연어 응답 텍스트 반환.
+    history는 in-place 갱신. 최종 자연어 응답 텍스트 반환.
 
     Safety:
     - stuck loop: 동일 tool_call 3회 반복 시 break + fallback.
@@ -170,14 +171,14 @@ def run_turn(
 
     _prepare_history(history)
 
-    # NLU 사전처리 — cart 상태를 넘겨 change_option↔add_menu 결정에 반영
-    cart_menus = [it["menu"] for it in cart.snapshot()]
-    proposal = extract_intent(user_message, cart_menus=cart_menus)
-    proposal_msg = render_proposal(proposal)
-    history.append({"role": "system", "content": proposal_msg})
-    logger.debug("NLU proposal: action=%s intents=%d", proposal.action, len(proposal.intents))
+    # LLM-first 핵심: 메뉴 데이터를 system msg로 dynamic inject.
+    # 발화마다 관련 후보만 + 옵션 사전 + 매장 미보유. 코드 변경 0.
+    menu_ctx = build_menu_context(user_message)
+    history.append({"role": "system", "content": menu_ctx})
 
     history.append({"role": "user", "content": user_message})
+
+    hallucination_guard_used = False
 
     for _ in range(cfg.max_round_trips):
         resp = client.chat.completions.create(
@@ -200,8 +201,17 @@ def run_turn(
                 return _STUCK_LOOP_FALLBACK
             continue
 
-        # 최종 자연어 응답
         text = msg.content or ""
+
+        # tool hallucination — 모델이 ```json / add_menu(...) 텍스트로 출력. 1회 retry.
+        if not hallucination_guard_used and looks_tool_hallucination(text):
+            logger.warning("tool hallucination — code/JSON text instead of API. retry once.")
+            hallucination_guard_used = True
+            history.append(
+                {"role": "system", "content": TOOL_HALLUCINATION_RETRY_HINT}
+            )
+            continue
+
         history.append({"role": "assistant", "content": text})
         if finish in ("stop", "length"):
             return text
