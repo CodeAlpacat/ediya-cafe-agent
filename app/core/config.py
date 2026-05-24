@@ -31,7 +31,6 @@ class Settings(BaseSettings):
     agent_temperature: float = 0.0
     agent_seed: int = 4242
     agent_max_round_trips: int = 5
-    agent_silent_corruption_guard: bool = True
 
     model_config = SettingsConfigDict(
         env_file=".env",
