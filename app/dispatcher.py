@@ -1,6 +1,7 @@
 """tool_name → Cart 메서드 라우팅 + 도메인 검증."""
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List
 
 from app.domain.cart import Cart
@@ -11,8 +12,12 @@ from app.domain.menu import (
     get_menu_stock,
     is_option_applicable,
     is_valid_menu,
+    keyword_menu_search,
+    load_menu,
     resolve_menu_alias,
 )
+
+logger = logging.getLogger("ediya.dispatcher")
 
 
 def _check_stock(cart: Cart, menu_kr: str, additional_quantity: int) -> Dict[str, Any] | None:
@@ -177,38 +182,75 @@ def _check_cart(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
     return {"status": "CART_VIEW", "cart": cart.snapshot()}
 
 
+def _category_breakdown_lines() -> List[str]:
+    """카테고리별 대표 메뉴를 한 줄씩 — RAG/키워드 검색이 비어도 항상 사실 기반 후보 제공.
+
+    "케이크/스콘" 같은 환각 fallback을 막기 위한 마지막 그라운딩 재료.
+    """
+    data = load_menu()
+    cats = data.get("categories", {})
+    by_cat: Dict[str, List[str]] = {}
+    for m in data["menus"]:
+        by_cat.setdefault(m.get("category", ""), []).append(m["kr"])
+    lines = []
+    for cid, c in cats.items():
+        examples = by_cat.get(cid, [])[:3]
+        if not examples:
+            continue
+        desc = c.get("descriptor", cid)
+        lines.append(f"{desc} - 예: {', '.join(examples)}")
+    return lines
+
+
 def _inquire_menu_info(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:
     """메뉴 정보 질의 응답.
 
-    Tool result 설계 (L3 처치):
-    - candidates를 압축된 list로 표시 (kr + 가격만, score는 모델에 노이즈)
-    - `next_action_hint`로 actor instruction inline 박제:
-      "이번 답변 후 사용자가 메뉴 명시하면 add_menu 호출. inquire 또 호출하지 말 것."
-    - 이렇게 하면 모델이 inquiry 모드에 stuck 되지 않고 다음 turn에 add로 라우팅.
+    그라운딩 사다리 (전부 사실 기반 후보를 모델에 전달 → 환각 방지):
+      1) 임베딩 RAG (의미 매칭)
+      2) 키워드 매칭 (RAG 미가용/빈 결과 시)
+      3) 카테고리 breakdown (그래도 비면 — 매장 전체 카테고리 안내)
+    + answer_constraint로 'candidates 밖 메뉴 언급 금지'를 명시.
     """
     question = args.get("question", "")
+    candidates: List[str] = []
+
+    # 1) 임베딩 RAG
     try:
         from app.llm.rag import answer_menu_inquiry
 
         rag = answer_menu_inquiry(question, k=5)
-        candidates = rag.get("candidates", [])
-        # 압축: score 제거, list 형식
-        compact = [f"{c['kr']} ({c['price_l']}원)" for c in candidates[:5]]
+        candidates = [
+            f"{c['kr']} ({c['price_l']}원)" for c in (rag.get("candidates") or [])
+        ]
+    except Exception as exc:  # pragma: no cover — embedding 모델 미설치 등
+        logger.warning("RAG 미가용 — 키워드 검색으로 폴백: %s", exc)
 
-        return {
-            "status": "MENU_INQUIRY",
-            "candidates": compact,
-            "next_action_hint": (
-                "이 답변 후 사용자가 구체적인 메뉴를 말하면 inquire_menu_info를 다시 호출하지 말고 "
-                "add_menu를 호출하세요. '그럼/그러면/그걸로' 같은 연결어 뒤에 메뉴가 오면 주문 의도예요."
-            ),
-        }
-    except Exception as exc:  # pragma: no cover — embedding 모델 미설치 fallback
-        return {
-            "status": "MENU_INQUIRY",
-            "candidates": [],
-            "next_action_hint": "RAG 미가용. 사용자에게 메뉴 카테고리만 안내.",
-        }
+    # 2) 키워드 폴백
+    if not candidates:
+        hits = keyword_menu_search(question, max_k=5)
+        candidates = [f"{h['kr']} ({h.get('base_price_l', 0) or 0}원)" for h in hits]
+
+    # 3) 카테고리 breakdown — 그래도 비면 매장 전체 안내
+    if not candidates:
+        candidates = _category_breakdown_lines()
+
+    return {
+        "status": "MENU_INQUIRY",
+        "candidates": candidates,
+        "answer_constraint": (
+            "candidates 안에 적힌 메뉴/카테고리만 사실로 인정해라. "
+            "그 밖의 항목(예: 케이크, 스콘)을 답변에 지어내면 손님 신뢰가 깨진다.\n"
+            "손님 질문과 연관된 항목이 candidates에 있으면(예: '디저트' 질문 → "
+            "베이커리·빙수 카테고리가 후보에 있음) 그 항목들을 적극적으로 안내해라. "
+            "카테고리 설명에 딸린 '예: …' 메뉴들을 손님에게 그대로 전달해도 좋다.\n"
+            "정말로 candidates 전체에서 손님 질문과 닿는 게 하나도 없을 때만 "
+            "'해당 종류는 없어요'라고 답해라."
+        ),
+        "next_action_hint": (
+            "이 답변 후 사용자가 구체적인 메뉴를 말하면 inquire_menu_info를 다시 호출하지 말고 "
+            "add_menu를 호출하세요. '그럼/그러면/그걸로' 같은 연결어 뒤에 메뉴가 오면 주문 의도예요."
+        ),
+    }
 
 
 def _done(cart: Cart, args: Dict[str, Any]) -> Dict[str, Any]:

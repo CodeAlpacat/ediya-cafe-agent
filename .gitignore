@@ -40,3 +40,12 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+
+# Claude Code 로컬 설정 (skills/commands/hooks/settings 등) — GitHub로 올리지 않음
+.claude/
+CLAUDE.md.local
+
+# macOS / 그 외 흔한 잡파일
+*.tmp
+*.bak
+.~*
